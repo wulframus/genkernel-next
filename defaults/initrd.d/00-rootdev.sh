@@ -19,7 +19,7 @@ _rootdev_detect() {
     while [ "${got_good_root}" != "1" ]; do
 
         case "${REAL_ROOT}" in
-            LABEL=*|UUID=*)
+            LABEL=*|UUID=*|MARKER=*)
                 local root_dev=$(find_real_device "${REAL_ROOT}")
                 if [ -n "${root_dev}" ]; then
                     REAL_ROOT="${root_dev}"

@@ -61,6 +61,20 @@ find_real_device() {
                 out="${real_device}"
             fi
         ;;
+        MARKER=*)
+            local marker="${device#*=}"
+            mkdir -p /tmp/marker
+            for i in $(blkid -o device); do
+                mount "${i}" "/tmp/marker" > /dev/null 2>&1 || continue
+                if [ -e "/tmp/marker/${marker}" ]; then
+                    out="${i}"
+                fi
+                umount "${i}" > /dev/null 2>&1
+                if [ ! -z "${out}" ]; then
+                    break
+                fi
+            done
+        ;;
         *)
             out="${device}"
         ;;
