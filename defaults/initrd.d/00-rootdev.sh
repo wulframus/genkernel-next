@@ -67,26 +67,53 @@ _rootdev_detect() {
     return 0
 }
 
-_rootdev_mount() {
+_over_rootdev_detect() {
+    local got_good_root=0
+    while [ "${got_good_root}" != "1" ]; do
+
+        case "${OVER_ROOT}" in
+            LABEL=*|UUID=*|MARKER=*)
+                local root_dev=$(find_real_device "${REAL_ROOT}")
+                if [ -n "${root_dev}" ]; then
+                    OVER_ROOT="${root_dev}"
+                    good_msg "Detected over_root: ${OVER_ROOT}"
+                else
+                    bad_msg "Unable to resolve over_root: ${OVER_ROOT}"
+
+                    got_good_root=0
+                    prompt_user "OVER_ROOT" "over_root block device"
+                    continue
+                fi
+                ;;
+        esac
+
+        if [ -z "${OVER_ROOT}" ]; then
+            # No OVER_ROOT determined/specified.
+            # Prompt user for over_root block device.
+            prompt_user "OVER_ROOT" "over_root block device"
+            got_good_root=0
+
+        elif [ -b "${OVER_ROOT}" ]; then
+            got_good_root=1
+        else
+            bad_msg "${OVER_ROOT} is an invalid over_root device..."
+            OVER_ROOT=""
+            got_good_root=0
+        fi
+    done
+
+    return 0
+}
+
+_real_rootdev_mount() {
     local mount_opts=ro
     local mount_fstype="${ROOTFSTYPE}"
     local fstype=$(get_device_fstype "${REAL_ROOT}")
-
-    # handle ZFS special case. Thanks to Jordan Patterson
-    # for reporting this.
-    if [ -z "${fstype}" ] && is_zfs; then
-        # here we assume that if ${fstype} is empty
-        # and ZFS is enabled, we may well force the
-        # fstype value to zfs_member
-        fstype=$(zfs_member_fstype)
-    fi
-
-    if is_zfs_fstype "${fstype}"; then
-        [ -z "${mount_fstype}" ] && mount_fstype=zfs
-        mount_opts=$(zfs_get_real_root_mount_flags)
-    fi
+    local mount_point="/.rootfs"
 
     [ -z "${mount_fstype}" ] && mount_fstype="${fstype}"
+
+    [ -d "${mount_point}" ] || mkdir -p "${mount_point}"
 
     good_msg "Detected fstype: ${fstype}"
     good_msg "Using mount fstype: ${mount_fstype}"
@@ -98,14 +125,92 @@ _rootdev_mount() {
     good_msg "Using mount opts: -o ${mopts}"
 
     mount -t "${mount_fstype}" -o "${mopts}" \
-        "${REAL_ROOT}" "${NEW_ROOT}" && return 0
+        "${REAL_ROOT}" "${mount_point}" && return 0
 
     bad_msg "Cannot mount ${REAL_ROOT}, trying with -t auto"
     mount -t "auto" -o "${mopts}" \
-        "${REAL_ROOT}" "${NEW_ROOT}" && return 0
+        "${REAL_ROOT}" "${mount_point}" && return 0
 
     bad_msg "Cannot mount ${REAL_ROOT} with -t auto, giving up"
+    return 1
+}
 
+_over_rootdev_mount() {
+    local mount_opts=rw
+    local mount_fstype="${OVER_ROOTFSTYPE}"
+    local fstype=$(get_device_fstype "${OVER_ROOT}")
+    local mount_point="/.overlay"
+
+    [ -d "${mount_point}" ] || mkdir -p "${mount_point}"
+
+    [ -z "${mount_fstype}" ] && mount_fstype="${fstype}"
+
+    good_msg "Detected fstype: ${fstype}"
+    good_msg "Using mount fstype: ${mount_fstype}"
+    _fstype_init "${fstype}"
+
+    local mopts="${mount_opts}"
+    [ -n "${OVER_ROOTFLAGS}" ] && \
+        mopts="${mopts},${OVER_ROOTFLAGS}"
+    good_msg "Using mount opts: -o ${mopts}"
+
+    mount -t "${mount_fstype}" -o "${mopts}" \
+        "${OVER_ROOT}" "${mount_point}" && return 0
+
+    bad_msg "Cannot mount ${OVER_ROOT}, trying with -t auto"
+    mount -t "auto" -o "${mopts}" \
+        "${OVER_ROOT}" "${mount_point}" && return 0
+
+    bad_msg "Cannot mount ${OVER_ROOT} with -t auto, giving up"
+    return 1
+}
+
+_rootdev_mount() {
+    if [ "${USE_AUFS}" == "1" ]; then
+        local fstype="aufs"
+	local mopts="br=/.overlay:/.rootfs"
+        good_msg "Detected fstype: ${fstype}"
+        mount -t "${fstype}" -o "${mopts}" root "${NEWROOT}" && return 0
+        bad_msg "Cannot mount AUFS as root"
+    else
+        local mount_opts=ro
+        local mount_fstype="${ROOTFSTYPE}"
+        local fstype=$(get_device_fstype "${REAL_ROOT}")
+
+        # handle ZFS special case. Thanks to Jordan Patterson
+        # for reporting this.
+        if [ -z "${fstype}" ] && is_zfs; then
+            # here we assume that if ${fstype} is empty
+            # and ZFS is enabled, we may well force the
+            # fstype value to zfs_member
+            fstype=$(zfs_member_fstype)
+        fi
+
+        if is_zfs_fstype "${fstype}"; then
+            [ -z "${mount_fstype}" ] && mount_fstype=zfs
+            mount_opts=$(zfs_get_real_root_mount_flags)
+        fi
+
+        [ -z "${mount_fstype}" ] && mount_fstype="${fstype}"
+
+        good_msg "Detected fstype: ${fstype}"
+        good_msg "Using mount fstype: ${mount_fstype}"
+        _fstype_init "${fstype}"
+
+        local mopts="${mount_opts}"
+        [ -n "${REAL_ROOTFLAGS}" ] && \
+            mopts="${mopts},${REAL_ROOTFLAGS}"
+        good_msg "Using mount opts: -o ${mopts}"
+
+        mount -t "${mount_fstype}" -o "${mopts}" \
+            "${REAL_ROOT}" "${NEW_ROOT}" && return 0
+
+        bad_msg "Cannot mount ${REAL_ROOT}, trying with -t auto"
+        mount -t "auto" -o "${mopts}" \
+            "${REAL_ROOT}" "${NEW_ROOT}" && return 0
+
+        bad_msg "Cannot mount ${REAL_ROOT} with -t auto, giving up"
+    fi
     return 1
 }
 
@@ -229,6 +334,8 @@ ensure_initramfs_mounts() {
 rootdev_init() {
     good_msg "Initializing root device..."
 
+    local real_out=1 over_out=1
+
     while true; do
 
         if ! _rootdev_detect; then
@@ -247,20 +354,61 @@ rootdev_init() {
             break
         fi
 
-        good_msg "Mounting ${REAL_ROOT} as root..."
-
-        # Try to mount the device as ${NEW_ROOT}
-        local out=1
-        if is_nfs; then
-            find_nfs && out=0
-        else
-            _rootdev_mount && out=0
+        if [ "${USE_AUFS}" == "1" ]; then
+            if ! _over_rootdev_detect; then
+                bad_msg "Could not mount specified OVER_ROOT, try again"
+                prompt_user "OVER_ROOT" "over_root block device"
+                continue
+            fi
         fi
 
-        if [ "${out}" != "0" ]; then
-            bad_msg "Could not mount specified ROOT, try again"
-            prompt_user "REAL_ROOT" "root block device"
-            continue
+        if [ "${USE_AUFS}" == "1" ]; then
+            local out=1
+            if [ "${real_out}" != "0" ]; then 
+                good_msg "Mounting ${REAL_ROOT} as rootfs..."
+                _real_rootdev_mount && real_out=0
+            fi
+            if [ "${over_out}" != "0" ]; then 
+                good_msg "Mounting ${OVER_ROOT} as overlay..."
+                _over_rootdev_mount && over_out=0
+            fi
+            if [ "${real_out}" != "0" ]; then
+                bad_msg "Could not mount specified ROOT, try again"
+                prompt_user "REAL_ROOT" "rootfs block device"
+                continue
+            fi
+            if [ "${over_out}" != "0" ]; then
+                bad_msg "Could not mount specified OVER_ROOT, try again"
+                prompt_user "OVER_ROOT" "overlay block device"
+                continue
+            fi
+	    good_msg "Mounting AUFS as root..."
+	    _rootdev_mount && out=0
+	    if [ "${out}" != "0"]; then
+                bad_msg "Could not mount AUFS root, try again"
+                umount "/.rootfs" "/.overlay" > /dev/null 2>&1
+                real_out=1
+                over_out=1
+                REAL_ROOT=""
+                OVER_ROOT=""
+                continue
+            fi
+        else
+            local out=1
+            good_msg "Mounting ${REAL_ROOT} as root..."
+
+            # Try to mount the device as ${NEW_ROOT}
+            if is_nfs; then
+                find_nfs && out=0
+            else
+                _rootdev_mount && out=0
+            fi
+
+            if [ "${out}" != "0" ]; then
+                bad_msg "Could not mount specified ROOT, try again"
+                prompt_user "REAL_ROOT" "root block device"
+                continue
+            fi
         fi
 
         # now that the root filesystem is mounted, before
