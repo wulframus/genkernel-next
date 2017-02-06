@@ -36,6 +36,7 @@ INIT_OPTS=""
 CRYPT_SILENT=0
 QUIET=""
 OVER_ROOT=""
+OVER_ROOTFLAGS=""
 
 mkdir -p /etc/cmdline /etc/modprobe.d
 for x in ${CMDLINE}; do
@@ -262,6 +263,12 @@ for x in ${CMDLINE}; do
         ;;
         over_root=*)
             OVER_ROOT=${x#*=}
+        ;;
+        over_rootfstype=*)
+            OVER_ROOTFSTYPE=${x#*=}
+        ;;
+        over_rootflags=*)
+            OVER_ROOTFLAGS=${x#*=}
         ;;
     esac
 done
