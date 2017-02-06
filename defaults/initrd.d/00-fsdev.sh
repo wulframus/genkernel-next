@@ -21,6 +21,19 @@ mount_sysfs() {
 # If that fails, try to unmount all possible mounts of devtmpfs as
 # stuff breaks otherwise
 move_mounts_to_chroot() {
+    if [ "${USE_AUFS}" == "1" ]; then
+        for fs in /.rootfs /.overlay; do
+            if grep -qs "$fs" /proc/mounts; then
+                local chroot_dir="${CHROOT}${fs}"
+                mkdir -p "${chroot_dir}"
+                if ! mount --move $fs "${chroot_dir}"
+                then
+                    umount $fs || \
+                    bad_msg "Failed to move and umount $fs!"
+                fi
+            fi
+        done
+    fi
     for fs in /run /dev /sys /proc; do
         if grep -qs "$fs" /proc/mounts; then
             local chroot_dir="${CHROOT}${fs}"
