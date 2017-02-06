@@ -104,6 +104,8 @@ longusage() {
   echo "    --no-zfs        Exclude ZFS support"
   echo "    --btrfs         Include BTRFS support"
   echo "    --no-btrfs      Exclude BTRFS support"
+  echo "    --aufs          Include AUFS support"
+  echo "    --no-aufs       Exclude AUFS support"
   echo "    --multipath     Include Multipath support"
   echo "    --no-multipath  Exclude Multipath support"
   echo "    --iscsi         Include iSCSI support"
@@ -321,6 +323,10 @@ parse_cmdline() {
         --btrfs|--no-btrfs)
             CMD_BTRFS=`parse_optbool "$*"`
             print_info 2 "CMD_BTRFS: ${CMD_BTRFS}"
+            ;;
+        --aufs|--no-aufs)
+            CMD_AUFS=`parse_optbool "$*"`
+            print_info 2 "CMD_AUFS: ${CMD_AUFS}"
             ;;
         --virtio)
             CMD_VIRTIO=`parse_optbool "$*"`

@@ -412,6 +412,21 @@ append_btrfs() {
     rm -rf "${TEMP}/initramfs-btrfs-temp" > /dev/null
 }
 
+append_aufs() {
+    if [ -d "${TEMP}/initramfs-aufs-temp" ]; then
+        rm -rf "${TEMP}/initramfs-aufs-temp"
+    fi
+    mkdir -p "${TEMP}/initramfs-aufs-temp"
+    copy_binaries "${TEMP}/initramfs-aufs-temp" \
+        "/sbin/mount.aufs"
+    cd "${TEMP}/initramfs-aufs-temp"
+    log_future_cpio_content
+    find . -print | cpio ${CPIO_ARGS} --apend -F "${CPIO}" \
+        || gen_die "compressing aufs cpio"
+    cd "${TEMP}"
+    rm -rf "${TEMP}/initramfs-aufs-temp"
+}
+
 append_splash(){
     splash_geninitramfs=`which splash_geninitramfs 2>/dev/null`
     if [ -x "${splash_geninitramfs}" ]
@@ -1037,6 +1052,8 @@ create_initramfs() {
     append_data 'zfs' "${ZFS}"
 
     append_data 'btrfs' "${BTRFS}"
+
+    append_data 'aufs' "${AUFS}"
 
     append_data 'blkid'
 

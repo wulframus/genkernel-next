@@ -277,6 +277,9 @@ INITIALIZATION
 *--*[*no-*]*btrfs*::
     Includes or excludes btrfs RAID support.
 
+*--*[*no-*]*aufs*::
+    Includes or excludes AUFS support.
+
 *--*[*no-*]*zfs*::
     Includes or excludes ZFS support.
 
