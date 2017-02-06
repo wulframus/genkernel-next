@@ -35,6 +35,7 @@ FAKE_ROOTFLAGS=""
 INIT_OPTS=""
 CRYPT_SILENT=0
 QUIET=""
+OVER_ROOT=""
 
 mkdir -p /etc/cmdline /etc/modprobe.d
 for x in ${CMDLINE}; do
@@ -258,6 +259,9 @@ for x in ${CMDLINE}; do
         ;;
         overlayfs)
             USE_OVERLAYFS=1
+        ;;
+        over_root=*)
+            OVER_ROOT=${x#*=}
         ;;
     esac
 done
