@@ -63,7 +63,7 @@ find_real_device() {
         ;;
         MARKER=*)
             local marker="${device#*=}"
-            mkdir -p /tmp/marker
+            mkdir -p "/tmp/marker"
             for i in $(blkid -o device); do
                 mount "${i}" "/tmp/marker" > /dev/null 2>&1 || continue
                 if [ -e "/tmp/marker/${marker}" ]; then
@@ -74,6 +74,7 @@ find_real_device() {
                     break
                 fi
             done
+            rmdir "/tmp/marker"
         ;;
         *)
             out="${device}"
