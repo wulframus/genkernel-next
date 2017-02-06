@@ -106,7 +106,7 @@ _over_rootdev_detect() {
 }
 
 _real_rootdev_mount() {
-    local mount_opts=ro
+    local mount_opts="ro,noatime"
     local mount_fstype="${ROOTFSTYPE}"
     local fstype=$(get_device_fstype "${REAL_ROOT}")
     local mount_point="/.rootfs"
@@ -136,7 +136,7 @@ _real_rootdev_mount() {
 }
 
 _over_rootdev_mount() {
-    local mount_opts=rw
+    local mount_opts="rw,noatime"
     local mount_fstype="${OVER_ROOTFSTYPE}"
     local fstype=$(get_device_fstype "${OVER_ROOT}")
     local mount_point="/.overlay"
@@ -168,7 +168,7 @@ _over_rootdev_mount() {
 _rootdev_mount() {
     if [ "${USE_AUFS}" == "1" ]; then
         local fstype="aufs"
-	local mopts="br=/.overlay:/.rootfs"
+	local mopts="rw,noatime,br=/.overlay:/.rootfs"
         good_msg "Detected fstype: ${fstype}"
         mount -t "${fstype}" -o "${mopts}" root "${NEWROOT}" && return 0
         bad_msg "Cannot mount AUFS as root"
