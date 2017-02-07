@@ -73,7 +73,7 @@ _over_rootdev_detect() {
 
         case "${OVER_ROOT}" in
             LABEL=*|UUID=*|MARKER=*)
-                local root_dev=$(find_real_device "${REAL_ROOT}")
+                local root_dev=$(find_real_device "${OVER_ROOT}")
                 if [ -n "${root_dev}" ]; then
                     OVER_ROOT="${root_dev}"
                     good_msg "Detected over_root: ${OVER_ROOT}"
