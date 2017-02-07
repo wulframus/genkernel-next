@@ -615,6 +615,17 @@ which the ramdisk scripts would recognize.
     Loop-mount an ISO file from the boot device to get the filesystem image.
     Useful with chain-loading environments and USB keys.
 
+*over_root*=<...>::
+    Specifies the device node of the overlay root filesystem to mount.
+
+*over_rootfstype*=<...>::
+    Specify the file system type to mount the overlay root filesystem as.
+    This can be useful when support for ext2/ext3/ext4 are
+    in competition.  Default is "auto".
+
+*over_rootflags*=<...>::
+    Additional flags to mount the overlay root system with.
+    For example *rootflags*=noatime would make "-o rw,noatime".
 
 NETBOOTING
 ----------
