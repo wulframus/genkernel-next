@@ -382,7 +382,7 @@ rootdev_init() {
             fi
 	    good_msg "Mounting AUFS as root..."
 	    _rootdev_mount && out=0
-	    if [ "${out}" != "0"]; then
+	    if [ "${out}" != "0" ]; then
                 bad_msg "Could not mount AUFS root, try again"
                 umount "/.rootfs" "/.overlay" > /dev/null 2>&1
                 real_out=1
