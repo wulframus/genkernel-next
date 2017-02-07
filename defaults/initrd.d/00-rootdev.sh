@@ -168,9 +168,9 @@ _over_rootdev_mount() {
 _rootdev_mount() {
     if [ "${USE_AUFS}" == "1" ]; then
         local fstype="aufs"
-	local mopts="br=/.overlay:/.rootfs"
+	local mopts="br=/.overlay:/.rootfs,rw,noatime"
         good_msg "Detected fstype: ${fstype}"
-        mount -t "${fstype}" -o "${mopts}" root "${NEWROOT}" && return 0
+        mount -t "${fstype}" -o "${mopts}" root "${NEW_ROOT}" && return 0
         bad_msg "Cannot mount AUFS as root"
     else
         local mount_opts=ro
