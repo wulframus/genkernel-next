@@ -421,7 +421,7 @@ append_aufs() {
         "/sbin/mount.aufs"
     cd "${TEMP}/initramfs-aufs-temp"
     log_future_cpio_content
-    find . -print | cpio ${CPIO_ARGS} --apend -F "${CPIO}" \
+    find . -print | cpio ${CPIO_ARGS} --append -F "${CPIO}" \
         || gen_die "compressing aufs cpio"
     cd "${TEMP}"
     rm -rf "${TEMP}/initramfs-aufs-temp"
