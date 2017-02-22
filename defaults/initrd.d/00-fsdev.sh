@@ -34,7 +34,7 @@ move_mounts_to_chroot() {
             fi
         done
     fi
-    for fs in /run /dev /sys /proc; do
+    for fs in /mnt/* /run /dev /sys /proc; do
         if grep -qs "$fs" /proc/mounts; then
             local chroot_dir="${CHROOT}${fs}"
             mkdir -p "${chroot_dir}"
@@ -107,7 +107,7 @@ find_real_device() {
     if [ -n "${out}" -a "${device}" != "${imgfile}" ]; then
         local loopdev=
         local mnt_dir=
-        if grep -q "${out}" /proc/mounts; then
+        if grep -qs "${out}" /proc/mounts; then
             mnt_dir=$(awk '$1 == "'${out}'" { print $2; }' /proc/mounts)
         else
             mnt_dir="/mnt/${out##*/}"
