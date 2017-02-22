@@ -48,7 +48,9 @@ move_mounts_to_chroot() {
 }
 
 find_real_device() {
-    local device="${1}"
+    # {device|HINT=<hint>}[:/path/to/image]
+    local device="${1%%:*}"
+    local imgfile="${1#*:}"
     local out=
     case "${device}" in
         UUID=*|LABEL=*)
@@ -76,23 +78,66 @@ find_real_device() {
         ;;
         MARKER=*)
             local marker="${device#*=}"
-            mkdir -p "/tmp/marker"
             for i in $(blkid -o device); do
-                mount -r "${i}" "/tmp/marker" > /dev/null 2>&1 || continue
-                if [ -e "/tmp/marker/${marker}" ]; then
-                    out="${i}"
+                local mnt_dir=
+                if grep -q "${i}" /proc/mounts > /dev/null 2>&1; then
+                    mnt_dir=$(awk '$1 == "'${i}'" { print $2; }' /proc/mounts)
+                    if [ -e "${mnt_dir}/${marker}" ]; then
+                        out="${i}"
+                    fi
+                else
+                    mnt_dir=$(mktemp -d)
+                    if mount -r "${i}" "${mnt_dir}" > /dev/null 2>&1; then
+                        if [ -e "${mnt_dir}/${marker}" ]; then
+                            out="${i}"
+                        fi
+                        umount "${i}" > /dev/null 2>&1
+                    fi
+                    rmdir "${mnt_dir}"
                 fi
-                umount "${i}" > /dev/null 2>&1
-                if [ ! -z "${out}" ]; then
+                if [ -n "${out}" ]; then
                     break
                 fi
             done
-            rmdir "/tmp/marker"
         ;;
         *)
             out="${device}"
         ;;
     esac
+    if [ -n "${out}" -a "${device}" != "${imgfile}" ]; then
+        local loopdev=
+        local mnt_dir=
+        if grep -q "${out}" /proc/mounts; then
+            mnt_dir=$(awk '$1 == "'${out}'" { print $2; }' /proc/mounts)
+        else
+            mnt_dir="/mnt/${out##*/}"
+            mkdir -p "${mnt_dir}"
+            if mount -t auto -o noatime "${out}" "${mnt_dir}" > /dev/null 2>&1; then
+                if [ ! -f "${mnt_dir}/${imgfile}" ]; then
+                    umount "${out}" > /dev/null 2>&1
+                    rmdir "${mnt_dir}"
+                    mnt_dir=""
+                fi
+            else
+                rmdir "${mnt_dir}"
+                mnt_dir=""
+            fi
+        fi
+        if [ -n "${mnt_dir}" ]; then
+            if [ -f "${mnt_dir}/${imgfile}" ]; then
+                loopdev=$(losetup -j "${mnt_dir}/${imgfile}" | awk -F: '{print $1;}')
+                if [ -z "${loopdev}" ]; then
+                    loopdev=$(losetup -f)
+                    losetup "${loopdev}" "${mnt_dir}/${imgfile}" || loopdev=""
+                fi
+                out="${loopdev}"
+            else
+                out=""
+            fi
+        else
+            out=""
+        fi
+    fi
     echo -n "${out}"
 }
 
