@@ -125,7 +125,7 @@ find_real_device() {
         fi
         if [ -n "${mnt_dir}" ]; then
             if [ -f "${mnt_dir}/${imgfile}" ]; then
-                loopdev=$(losetup -j "${mnt_dir}/${imgfile}" | awk -F: '{print $1;}')
+                loopdev=$(losetup -a | grep "${mnt_dir}/${imgfile}" | awk -F: '{print $1;}')
                 if [ -z "${loopdev}" ]; then
                     loopdev=$(losetup -f)
                     losetup "${loopdev}" "${mnt_dir}/${imgfile}" || loopdev=""
