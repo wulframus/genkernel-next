@@ -11,6 +11,18 @@ _is_mdadm() {
     return 0
 }
 
+_find_loop_by_backing_file() {
+	local file=$(busybox realpath "${1}")
+	for loop in /sys/block/loop*; do
+		test -d "${loop}/loop" || continue
+		local backing_file=$(< "${loop}/loop/backing_file")
+		if [ "${file}" == "${backing_file}" ]; then
+			echo -n "/dev/${loop##*/}"
+			break
+		fi
+	done
+}
+
 mount_sysfs() {
     mount -t sysfs sysfs /sys -o noexec,nosuid,nodev \
         >/dev/null 2>&1 && return 0
@@ -34,7 +46,7 @@ move_mounts_to_chroot() {
             fi
         done
     fi
-    for fs in /run /dev /sys /proc; do
+    for fs in /mnt/* /run /dev /sys /proc; do
         if grep -qs "$fs" /proc/mounts; then
             local chroot_dir="${CHROOT}${fs}"
             mkdir -p "${chroot_dir}"
@@ -48,7 +60,9 @@ move_mounts_to_chroot() {
 }
 
 find_real_device() {
-    local device="${1}"
+    # {device|HINT=<hint>}[:/path/to/image]
+    local device="${1%%:*}"
+    local imgfile="${1#*:}"
     local out=
     case "${device}" in
         UUID=*|LABEL=*)
@@ -76,23 +90,66 @@ find_real_device() {
         ;;
         MARKER=*)
             local marker="${device#*=}"
-            mkdir -p "/tmp/marker"
             for i in $(blkid -o device); do
-                mount -r "${i}" "/tmp/marker" > /dev/null 2>&1 || continue
-                if [ -e "/tmp/marker/${marker}" ]; then
-                    out="${i}"
+                local mnt_dir=
+                if grep -q "${i}" /proc/mounts > /dev/null 2>&1; then
+                    mnt_dir=$(awk '$1 == "'${i}'" { print $2; }' /proc/mounts)
+                    if [ -e "${mnt_dir}/${marker}" ]; then
+                        out="${i}"
+                    fi
+                else
+                    mnt_dir=$(mktemp -d)
+                    if mount -r "${i}" "${mnt_dir}" > /dev/null 2>&1; then
+                        if [ -e "${mnt_dir}/${marker}" ]; then
+                            out="${i}"
+                        fi
+                        umount "${i}" > /dev/null 2>&1
+                    fi
+                    rmdir "${mnt_dir}"
                 fi
-                umount "${i}" > /dev/null 2>&1
-                if [ ! -z "${out}" ]; then
+                if [ -n "${out}" ]; then
                     break
                 fi
             done
-            rmdir "/tmp/marker"
         ;;
         *)
             out="${device}"
         ;;
     esac
+    if [ -n "${out}" -a "${device}" != "${imgfile}" ]; then
+        local loopdev=
+        local mnt_dir=
+        if grep -qs "${out}" /proc/mounts; then
+            mnt_dir=$(awk '$1 == "'${out}'" { print $2; }' /proc/mounts)
+        else
+            mnt_dir="/mnt/${out##*/}"
+            mkdir -p "${mnt_dir}"
+            if mount -t auto -o noatime "${out}" "${mnt_dir}" > /dev/null 2>&1; then
+                if [ ! -f "${mnt_dir}/${imgfile}" ]; then
+                    umount "${out}" > /dev/null 2>&1
+                    rmdir "${mnt_dir}"
+                    mnt_dir=""
+                fi
+            else
+                rmdir "${mnt_dir}"
+                mnt_dir=""
+            fi
+        fi
+        if [ -n "${mnt_dir}" ]; then
+            if [ -f "${mnt_dir}/${imgfile}" ]; then
+                loopdev=$(_find_loop_by_backing_file "${mnt_dir}/${loop}")
+                if [ -z "${loopdev}" ]; then
+                    loopdev=$(losetup -f)
+                    losetup "${loopdev}" "${mnt_dir}/${imgfile}" || loopdev=""
+                fi
+                out="${loopdev}"
+            else
+                out=""
+            fi
+        else
+            out=""
+        fi
+    fi
     echo -n "${out}"
 }
 
