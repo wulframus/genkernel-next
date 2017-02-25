@@ -11,6 +11,18 @@ _is_mdadm() {
     return 0
 }
 
+_find_loop_by_backing_file() {
+	local file=$(busybox realpath "${1}")
+	for loop in /sys/block/loop*; do
+		test -d "${loop}/loop" || continue
+		local backing_file=$(< "${loop}/loop/backing_file")
+		if [ "${file}" == "${backing_file}" ]; then
+			echo -n "/dev/${loop##*/}"
+			break
+		fi
+	done
+}
+
 mount_sysfs() {
     mount -t sysfs sysfs /sys -o noexec,nosuid,nodev \
         >/dev/null 2>&1 && return 0
@@ -125,9 +137,7 @@ find_real_device() {
         fi
         if [ -n "${mnt_dir}" ]; then
             if [ -f "${mnt_dir}/${imgfile}" ]; then
-                # FIXME: get loopdev if already setupped, losetup -j and losetup -a is not valid
-                #loopdev=$(losetup -a | grep "${mnt_dir}/${imgfile}" | awk -F: '{print $1;}')
-		loopdev=""
+                loopdev=$(_find_loop_by_backing_file "${mnt_dir}/${loop}")
                 if [ -z "${loopdev}" ]; then
                     loopdev=$(losetup -f)
                     losetup "${loopdev}" "${mnt_dir}/${imgfile}" || loopdev=""
