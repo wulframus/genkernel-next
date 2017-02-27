@@ -68,39 +68,45 @@ _rootdev_detect() {
 }
 
 _over_rootdev_detect() {
-    local got_good_root=0
-    while [ "${got_good_root}" != "1" ]; do
+    if [ -n "${OVER_ROOT}" ]; then
+        OVER_ROOT="none"
+        OVER_ROOTFSTYPE="tmpfs"
+        OVER_ROOTFLAGS="mode=0755,size=256m"
+    else
+        local got_good_root=0
+        while [ "${got_good_root}" != "1" ]; do
 
-        case "${OVER_ROOT}" in
-            LABEL=*|UUID=*|MARKER=*)
-                local root_dev=$(find_real_device "${OVER_ROOT}")
-                if [ -n "${root_dev}" ]; then
-                    OVER_ROOT="${root_dev}"
-                    good_msg "Detected over_root: ${OVER_ROOT}"
-                else
-                    bad_msg "Unable to resolve over_root: ${OVER_ROOT}"
+            case "${OVER_ROOT}" in
+                LABEL=*|UUID=*|MARKER=*)
+                    local root_dev=$(find_real_device "${OVER_ROOT}")
+                    if [ -n "${root_dev}" ]; then
+                        OVER_ROOT="${root_dev}"
+                        good_msg "Detected over_root: ${OVER_ROOT}"
+                    else
+                        bad_msg "Unable to resolve over_root: ${OVER_ROOT}"
 
-                    got_good_root=0
-                    prompt_user "OVER_ROOT" "over_root block device"
-                    continue
-                fi
-                ;;
-        esac
+                        got_good_root=0
+                        prompt_user "OVER_ROOT" "over_root block device"
+                        continue
+                    fi
+                    ;;
+            esac
 
-        if [ -z "${OVER_ROOT}" ]; then
-            # No OVER_ROOT determined/specified.
-            # Prompt user for over_root block device.
-            prompt_user "OVER_ROOT" "over_root block device"
-            got_good_root=0
+            if [ -z "${OVER_ROOT}" ]; then
+                # No OVER_ROOT determined/specified.
+                # Prompt user for over_root block device.
+                prompt_user "OVER_ROOT" "over_root block device"
+                got_good_root=0
 
-        elif [ -b "${OVER_ROOT}" ]; then
-            got_good_root=1
-        else
-            bad_msg "${OVER_ROOT} is an invalid over_root device..."
-            OVER_ROOT=""
-            got_good_root=0
-        fi
-    done
+            elif [ -b "${OVER_ROOT}" ]; then
+                got_good_root=1
+            else
+                bad_msg "${OVER_ROOT} is an invalid over_root device..."
+                OVER_ROOT=""
+                got_good_root=0
+            fi
+        done
+    fi
 
     return 0
 }
