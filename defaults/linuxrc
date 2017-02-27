@@ -36,6 +36,7 @@ INIT_OPTS=""
 CRYPT_SILENT=0
 QUIET=""
 OVER_ROOT=""
+OVER_ROOTFSTYPE=""
 OVER_ROOTFLAGS=""
 
 mkdir -p /etc/cmdline /etc/modprobe.d
