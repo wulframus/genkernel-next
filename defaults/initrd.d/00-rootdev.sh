@@ -68,7 +68,7 @@ _rootdev_detect() {
 }
 
 _over_rootdev_detect() {
-    if [ -n "${OVER_ROOT}" ]; then
+    if [ -z "${OVER_ROOT}" ]; then
         OVER_ROOT="none"
         OVER_ROOTFSTYPE="tmpfs"
         OVER_ROOTFLAGS="mode=0755,size=256m"
