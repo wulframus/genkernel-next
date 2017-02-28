@@ -69,7 +69,7 @@ _rootdev_detect() {
 
 _over_rootdev_detect() {
     if [ -z "${OVER_ROOT}" ]; then
-        OVER_ROOT="none"
+        OVER_ROOT="overlay"
         OVER_ROOTFSTYPE="tmpfs"
         OVER_ROOTFLAGS="mode=0755,size=256m"
     else
@@ -115,7 +115,7 @@ _real_rootdev_mount() {
     local mount_opts="ro,noatime"
     local mount_fstype="${ROOTFSTYPE}"
     local fstype=$(get_device_fstype "${REAL_ROOT}")
-    local mount_point="/.rootfs"
+    local mount_point="/run/media/rootfs"
 
     [ -z "${mount_fstype}" ] && mount_fstype="${fstype}"
 
@@ -145,7 +145,7 @@ _over_rootdev_mount() {
     local mount_opts="rw,noatime"
     local mount_fstype="${OVER_ROOTFSTYPE}"
     local fstype=$(get_device_fstype "${OVER_ROOT}")
-    local mount_point="/.overlay"
+    local mount_point="/run/media/overlay"
 
     [ -d "${mount_point}" ] || mkdir -p "${mount_point}"
 
@@ -173,7 +173,7 @@ _over_rootdev_mount() {
 
 _rootdev_mount() {
     if [ "${USE_AUFS}" == "1" ]; then
-	local mopts="br=/.overlay:/.rootfs,noatime"
+	local mopts="br=/run/media/overlay:/run/media/rootfs,noatime"
         mount -t "aufs" -o "${mopts}" root "${NEW_ROOT}" && return 0
         bad_msg "Cannot mount AUFS as root"
     else

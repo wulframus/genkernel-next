@@ -33,20 +33,7 @@ mount_sysfs() {
 # If that fails, try to unmount all possible mounts of devtmpfs as
 # stuff breaks otherwise
 move_mounts_to_chroot() {
-    if [ "${USE_AUFS}" == "1" ]; then
-        for fs in /.rootfs /.overlay; do
-            if grep -qs "$fs" /proc/mounts; then
-                local chroot_dir="${CHROOT}${fs}"
-                mkdir -p "${chroot_dir}"
-                if ! mount --move $fs "${chroot_dir}"
-                then
-                    umount $fs || \
-                    bad_msg "Failed to move and umount $fs!"
-                fi
-            fi
-        done
-    fi
-    for fs in /mnt/* /run /dev /sys /proc; do
+    for fs in /run /dev /sys /proc; do
         if grep -qs "$fs" /proc/mounts; then
             local chroot_dir="${CHROOT}${fs}"
             mkdir -p "${chroot_dir}"
@@ -122,7 +109,7 @@ find_real_device() {
         if grep -qs "${out}" /proc/mounts; then
             mnt_dir=$(awk '$1 == "'${out}'" { print $2; }' /proc/mounts)
         else
-            mnt_dir="/mnt/${out##*/}"
+            mnt_dir="/run/media/${out##*/}"
             mkdir -p "${mnt_dir}"
             if mount -t auto -o noatime "${out}" "${mnt_dir}" > /dev/null 2>&1; then
                 if [ ! -f "${mnt_dir}/${imgfile}" ]; then
