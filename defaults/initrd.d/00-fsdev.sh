@@ -33,8 +33,8 @@ mount_sysfs() {
 # If that fails, try to unmount all possible mounts of devtmpfs as
 # stuff breaks otherwise
 move_mounts_to_chroot() {
-    local extra_mounts=( $(awk '$2 ~ /^\/run\/media\// { print $2; }') )
-    for fs in /run "${extra_mounts[@]}" /dev /sys /proc; do
+    local extra_mounts=$(awk '$2 ~ /^\/run\/media\// { print $2; }' /proc/mounts)
+    for fs in /run ${extra_mounts} /dev /sys /proc; do
         if grep -qs "$fs" /proc/mounts; then
             local chroot_dir="${CHROOT}${fs}"
             mkdir -p "${chroot_dir}"
